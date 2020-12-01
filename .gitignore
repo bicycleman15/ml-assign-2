@@ -1,0 +1,7 @@
+fashion_mnist
+weights
+col774_yelp_data
+.vscode
+*.pickle
+*.jpg
+*.png

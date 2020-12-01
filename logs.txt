@@ -1,0 +1,13 @@
+test acc : 60.43
+train acc : 
+random acc : 19.979359547704874
+
+SVM : 2 and 3 class
+
+gauss kernel
+val :  85.2
+test : 85.6
+
+dot kernel
+val :   89.6
+test :  91.3
