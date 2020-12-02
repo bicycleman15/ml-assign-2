@@ -4,6 +4,10 @@ import os
 from tqdm import tqdm
 from cvxopt import matrix, solvers
 
+class_pair_to_data = {}
+class_pair_to_aplha = {}
+num_classes = 10
+
 def _give_image_label_split(x, y, images, labels):
     """Gives the image, label split according to the 
     2 classes given in the args of the func.
@@ -191,17 +195,16 @@ def _find_acc(images_test, labels_test, images, labels, alpha, b, kernel_func):
 
 #####################################################################################
 
-class_pair_to_data = {}
-class_pair_to_aplha = {}
-
 def generate_choose_2(N : int):
+    choose2 = []
     for i in range(N):
         for j in range(i+1,N):
-            yield (i, j)
+            choose2.append((i, j))
+    return choose2
 
 def _train_all_svms():
     print("Begining training.")
-    for x, y in generate_choose_2(10):
+    for x, y in generate_choose_2(num_classes):
         print("Now training {} & {}".format(x, y))
         file_name = "SVM-guassian-{}-{}.npy".format(x, y)
         path_name = os.path.join("weights", file_name)
@@ -224,18 +227,12 @@ def _train_all_svms():
 def predict_multiclass(image, kernel_func=_gaussian_kernel):
     scores = np.zeros(10)
     num = np.zeros(10)
-    for x, y  in tqdm(generate_choose_2(10)):
+    for x, y  in generate_choose_2(num_classes):
         # load the model first
-        file_name = "SVM-guassian-{}-{}.npy".format(x, y)
-        path_name = os.path.join("weights", file_name)
+        assert (x, y) in class_pair_to_aplha
 
-        assert os.path.exists(path_name)
-
-        f = open(path_name,"rb")
-        alpha = np.load(f)
-        f.close()
-
-        images, labels = _load_mnist(x=x, y=y)
+        alpha = class_pair_to_aplha[(x, y)]
+        images, labels = class_pair_to_data[(x, y)]
 
         b = 0.
         if kernel_func == _gaussian_kernel:
@@ -272,6 +269,14 @@ def predict_multiclass(image, kernel_func=_gaussian_kernel):
 
 def _setup_data(split='val'):
     print("Loading weights and data.")
+    for x,y in tqdm(generate_choose_2(num_classes)):
+        file_name = "SVM-guassian-{}-{}.npy".format(x, y)
+        path_name = os.path.join("weights", file_name)
+        f = open(path_name, "rb")
+        alpha = np.load(f)
+        class_pair_to_aplha[(x, y)] = alpha
+        class_pair_to_data[(x, y)] = _load_mnist(split=split, x=x, y=y)
+
 
 def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
     _setup_data(split=split)
@@ -314,6 +319,6 @@ def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
 # acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
 # print(acc * 100)
 
-# _train_all_svms()
+_train_all_svms()
 
-print(calc_acc_multiclass())
+# print(calc_acc_multiclass())
