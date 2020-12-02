@@ -52,11 +52,11 @@ def _load_all_mnist(path="fashion_mnist", split='val'):
     images = data[:, :-1]
     labels = data[:, -1]
 
-    # NOTE : delete this later
-    mask = labels <= 4
-    images = images[mask]
-    labels = labels[mask]
-    # ---------------------
+    # # NOTE : delete this later
+    # mask = labels <= 2
+    # images = images[mask]
+    # labels = labels[mask]
+    # # ---------------------
     
     images /= 255
     return images, labels
@@ -319,6 +319,6 @@ def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
 # acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
 # print(acc * 100)
 
-_train_all_svms()
+# _train_all_svms()
 
 # print(calc_acc_multiclass())

@@ -5,3 +5,4 @@ col774_yelp_data
 *.pickle
 *.jpg
 *.png
+*.pyc
