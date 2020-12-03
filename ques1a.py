@@ -112,16 +112,16 @@ if __name__ == '__main__':
     # pickle.dump(outputs, f)
     # f.close()
 
-    logits, gt_labels = _load_object("outputs_stemmed_test.pickle")
-    conf_matrix = create_confusion_matrix(logits, gt_labels)
+    # logits, gt_labels = _load_object("outputs_stemmed_test.pickle")
+    # conf_matrix = create_confusion_matrix(logits, gt_labels)
     
-    print(calc_accuracy(logits, gt_labels) * 100)
-    print(conf_matrix)
+    # print(calc_accuracy(logits, gt_labels) * 100)
+    # print(conf_matrix)
 
-    plot_confusion_matrix(conf_matrix, model.classes)
+    # plot_confusion_matrix(conf_matrix, model.classes)
 
-    probs = logits_to_prob_vector(logits)
-    plot_roc_curve(logits, gt_labels)
+    # probs = logits_to_prob_vector(logits)
+    # plot_roc_curve(logits, gt_labels)
     
 
 

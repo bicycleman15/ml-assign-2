@@ -74,6 +74,7 @@ def plot_roc_curve(logits, gt_labels):
 
 en_stop = set(stopwords.words('english'))
 p_stemmer = PorterStemmer()
+p_stemmer = lru_cache(maxsize=None)(p_stemmer.stem)
 
 def stemmedTokenizer(text : str):
     text = _clean_text(text)

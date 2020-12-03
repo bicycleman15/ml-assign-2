@@ -319,6 +319,6 @@ def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
 # acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
 # print(acc * 100)
 
-# _train_all_svms()
+_train_all_svms()
 
 # print(calc_acc_multiclass())
