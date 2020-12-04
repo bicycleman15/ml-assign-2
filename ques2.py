@@ -2,7 +2,13 @@ import pandas as pd
 import numpy as np
 import os
 from tqdm import tqdm
+
+import cvxopt
 from cvxopt import matrix, solvers
+
+# set random seeds
+cvxopt.base.setseed(10)
+np.random.seed(10)
 
 class_pair_to_data = {}
 class_pair_to_aplha = {}
@@ -101,12 +107,12 @@ def _solve_svm(images, labels, kernel_func):
 
     I = np.eye(m)
     minus_I = -np.eye(m)
-    G = np.concatenate([I, minus_I])
+    G = np.concatenate([minus_I, I]) # Swtich
 
     C = 1.0
     h_c = np.zeros(m) + C
     h_zero = np.zeros(m)
-    h = np.concatenate([h_c, h_zero])
+    h = np.concatenate([h_zero, h_c]) # swtich
 
     A = labels.copy()
     A = np.reshape(A, [1, -1])
@@ -117,7 +123,6 @@ def _solve_svm(images, labels, kernel_func):
     h = matrix(h)
     A = matrix(A)
     b = matrix([[0.0]])
-
     sol = solvers.qp(P,q,G,h,A,b)
     aplha = np.array(sol['x']).ravel()
 
@@ -145,7 +150,7 @@ def _find_b_dot(images, labels, alpha, kernel_func=_dot_product):
     
     return -(mx + mn)/2
 
-def _find_b_gauss(images, labels, alpha, kernel_func=_gaussian_kernel):
+def _find_b(images, labels, alpha, kernel_func):
     idx = -1
     m = images.shape[0]
     for i in range(m):
@@ -169,11 +174,12 @@ def predict(image, images, labels, alpha, b, kernel_func=_gaussian_kernel, retur
         prediction += prod
     prediction += b
 
+    # always return the pos prediction
     if return_score:
         if prediction >= 0:
             return 1, prediction
         else:
-            return -1, prediction
+            return -1, -prediction
     
     if prediction >= 0:
         return 1
@@ -234,11 +240,7 @@ def predict_multiclass(image, kernel_func=_gaussian_kernel):
         alpha = class_pair_to_aplha[(x, y)]
         images, labels = class_pair_to_data[(x, y)]
 
-        b = 0.
-        if kernel_func == _gaussian_kernel:
-            b = _find_b_gauss(images, labels, alpha)
-        else:
-            b = _find_b_dot(images, labels, alpha)
+        b = _find_b(images, labels, alpha, kernel_func=kernel_func)
 
         output, score = predict(image, images, labels, alpha, b, kernel_func=kernel_func,return_score=True)
 
@@ -263,6 +265,10 @@ def predict_multiclass(image, kernel_func=_gaussian_kernel):
             if mx < num[i]:
                 final_idx = i
                 mx = num[i]
+
+    # print("top votes : {}".format(list(idxs)), end=' | ')
+    # print("top numerical : {}".format(list(num[idxs])), end=' | ')
+    # print("selected : {}".format(final_idx), end=' | ')
     
     assert final_idx >= 0
     return final_idx
@@ -281,6 +287,7 @@ def _setup_data(split='val'):
 def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
     _setup_data(split=split)
     images, labels = _load_all_mnist(split=split)
+    labels = labels.astype(np.int8)
     predictions = []
 
     print("Now running validation on split {}.".format(split))
@@ -288,6 +295,14 @@ def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
         image = images[i]
         output = predict_multiclass(image, kernel_func)
         predictions.append(output)
+
+        if i % 50 == 0 and i > 0:
+            short_pred = np.array(predictions[:i])
+            short_gt = labels[:i]
+            mask = short_gt == short_pred
+            print("Accuracy after {} iterations is : {:.3f}".format(i, sum(mask)/len(mask)))
+
+        # print("actual : {}".format(labels[i]))
     
     predictions = np.array(predictions)
     mask = predictions == labels
@@ -299,26 +314,20 @@ def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
 
 #####################################################################################
 
-# images, labels = _load_mnist(split='train', x=2, y=3)
+if __name__ == "__main__":
+    x, y = 4, 5
+    kernel = _dot_product
 
-# print("loaded training data")
-# print(images.shape)
+    images, labels = _load_mnist(split='train', x=x, y=y)
+    alpha = _solve_svm(images, labels, kernel)
+    b = _find_b(images, labels, alpha, kernel)
+    
+    X_test, Y_test = _load_mnist(split='val', x=x, y=y)
+    acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
+    print("accuracy on test is : {:.3f}".format(acc * 100))
 
-# kernel = _dot_product
-
-# alpha = _solve_svm(images, labels, kernel)
-
-# # b = _find_b_gauss(images, labels, alpha)
-# b = _find_b_dot(images, labels, alpha)
-
-# X_test, Y_test = _load_mnist(split='test', x=2, y=3)
-
-# print("loaded val data")
-# print(X_test.shape)
-
-# acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
-# print(acc * 100)
-
-_train_all_svms()
-
-# print(calc_acc_multiclass())
+    X_test, Y_test = _load_mnist(split='test', x=x, y=y)
+    acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
+    print("accuracy on val is : {:.3f}".format(acc * 100))
+    
+    # calc_acc_multiclass()

@@ -11,7 +11,9 @@ import seaborn as sns
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 from nltk.stem.porter import PorterStemmer
+from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
+from functools import lru_cache
 
 regex = re.compile('[%s]' % re.escape(string.punctuation))
 
@@ -38,7 +40,7 @@ def calc_accuracy(logits, gt_labels):
 def create_confusion_matrix(logits, gt_labels):
     return confusion_matrix(gt_labels, np.argmax(logits, axis=1))
 
-def plot_confusion_matrix(conf_matrix, labels):
+def plot_confusion_matrix(conf_matrix, labels, name="conf-matrix"):
     ax = plt.subplot()
     sns.heatmap(conf_matrix, annot=True, ax = ax, fmt="d")
 
@@ -47,38 +49,52 @@ def plot_confusion_matrix(conf_matrix, labels):
     ax.set_title('Confusion Matrix')
     ax.xaxis.set_ticklabels(labels); ax.yaxis.set_ticklabels(labels);
 
-    plt.savefig("conf_matrix.png")
+    plt.savefig("{}.png".format(name))
 
 def logits_to_prob_vector(logits):
     unnorm_probs = np.exp(logits)
-    return unnorm_probs / np.sum(unnorm_probs)
+    norm_probs = unnorm_probs / np.sum(unnorm_probs)
+    return norm_probs
 
-def plot_roc_curve(logits, gt_labels):
-    probs = logits_to_prob_vector(logits)
+def take_mean_logits(logits):
+    for i in range(logits.shape[0]):
+        logits[i] -= np.mean(logits[i])
+    return logits
+
+def plot_roc_curve(probs, gt_labels, name='roc'):
     labels = label_binarize(gt_labels, classes=[0, 1, 2, 3, 4])
 
-    class_to_plot = 1
+    # class_to_plot = 1
     # fpr, tpr, _ = roc_curve(labels[:][class_to_plot], probs[:][class_to_plot])
     fpr, tpr, _ = roc_curve(labels.ravel(), probs.ravel())
     roc_auc = auc(fpr, tpr)
 
-    # import pdb; pdb.set_trace()
-
     plt.figure()
-    plt.plot(fpr, tpr,
-            label='micro-average ROC curve (area = {0:0.2f})'
-                ''.format(roc_auc))
+    plt.xlabel("False Positive Rate"); plt.ylabel("True Positive Rate")
+    plt.plot(fpr, tpr, label='micro-average ROC curve (area = {:.3f})'.format(roc_auc))
+    plt.legend(loc="upper left")
 
-    plt.savefig("roc.jpg")
+    plt.savefig("{}.jpg".format(name))
 
 
 en_stop = set(stopwords.words('english'))
 p_stemmer = PorterStemmer()
 p_stemmer = lru_cache(maxsize=None)(p_stemmer.stem)
 
+lemmatizer = WordNetLemmatizer()
+lemmatizer = lru_cache(maxsize=None)(lemmatizer.lemmatize)
+
 def stemmedTokenizer(text : str):
     text = _clean_text(text)
     tokens = nltk.tokenize.word_tokenize(text)
     stopped_tokens = filter(lambda token: token not in en_stop, tokens)
-    stemmed_tokens = map(lambda token: p_stemmer.stem(token), stopped_tokens)
+    stemmed_tokens = map(lambda token: p_stemmer(token), stopped_tokens)
     return list(stemmed_tokens)
+
+def lemmaTokenizer(text : str):
+    text = _clean_text(text)
+    tokens = nltk.tokenize.word_tokenize(text)
+    stopped_tokens = filter(lambda token: token not in en_stop, tokens)
+    stemmed_tokens = map(lambda token: p_stemmer(token), stopped_tokens)
+    lemma_tokens = map(lambda token: lemmatizer(token), stemmed_tokens)
+    return list(lemma_tokens)

@@ -1,0 +1,16 @@
+time taken to train naive bayes on Scikit : 38.213 seconds.
+Accuracy for naive bayes is : 59.481
+
+time taken to train LinearSVC (SVM) on Scikit : 87.078 seconds.
+Accuracy for liblinear SVM is : 65.628
+
+time taken to train gradient descent classifier on Scikit : 44.814 seconds.
+Accuracy for SGD classifier is : 62.247
+
+
+I tried various values of C for last question and used val set to set perfect values of C=1
+val set is actually 20% of train set
+c_values = [1e-5, 1e-3, 1, 5, 10]
+acc on val set = [0.440, 0.593, 0.652, 0.636, 0.627]
+c_values = [0.1, 0.5, 2.5]
+[0.661, 0.658, 0.645]

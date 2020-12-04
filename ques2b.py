@@ -43,7 +43,7 @@ def _plot_confusion_mnist(predictions, gt_labels, name='scikit'):
     ax.set_xlabel('Predicted labels'); ax.set_ylabel('True labels'); 
     ax.set_title('Confusion Matrix')
     ax.xaxis.set_ticklabels(class_list); ax.yaxis.set_ticklabels(class_list);
-    plt.savefig("{}-conf_matrix_svm.png".format(name))
+    plt.savefig("{}.jpg".format(name))
 
 def _train_svm_scikit_k_fold(gamma=0.05, C=1.0):
     """Trains a svm and returns the estimator object"""
@@ -52,7 +52,7 @@ def _train_svm_scikit_k_fold(gamma=0.05, C=1.0):
     start = time.time()
     clf = svm.SVC(C=C, gamma=gamma, decision_function_shape='ovo')
     images, labels = _load_all_mnist(split='train')
-    scores = cross_val_score(clf, images, labels, cv=2)
+    scores = cross_val_score(clf, images, labels, cv=5)
     score_k_fold = np.mean(scores)
 
     clf = svm.SVC(C=C, gamma=gamma, decision_function_shape='ovo')
@@ -70,19 +70,30 @@ def _plot_C_curve_k_fold():
     c_values = [1e-5, 1e-3, 1.0, 5.0, 10.0]
     score_pairs = [_train_svm_scikit_k_fold(C=x) for x in c_values]
 
+    print(score_pairs)
+
     c_values = np.array(c_values)
     c_values = np.log10(c_values)
+
+    print(c_values)
 
     cross_acc = np.array([x[0] for x in score_pairs])
     test_acc = np.array([x[1] for x in score_pairs])
 
     # plot graphs here
     f = open("k-fold.txt","w")
-    print(cross_acc, file=f)
-    print(test_acc, file=f)
+    print(list(c_values), file=f)
+    print("cross acc : ", end='')
+    print(list(cross_acc), file=f)
+    print("test acc : ", end='')
+    print(list(test_acc), file=f)
     f.close()
 
 if __name__ == "__main__":
-    # preds, gts = _train_svm_scikit(split='val')
-    # _plot_confusion_mnist(preds, gts)
-    _plot_C_curve_k_fold()
+
+    preds, gts = _train_svm_scikit(split='test')
+    test = _find_accuracy(preds, gts)
+    print("acc on test scikit: {:.3f}".format(test * 100))
+
+    _plot_confusion_mnist(preds, gts, name='svm-scikit-2-b-ii-conf-matrix')
+    # _plot_C_curve_k_fold()

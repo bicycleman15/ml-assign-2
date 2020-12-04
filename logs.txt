@@ -1,7 +1,3 @@
-test acc : 60.43
-train acc : 
-random acc : 19.979359547704874
-
 SVM : 2 and 3 class
 
 gauss kernel
@@ -9,8 +5,8 @@ val :  85.2
 test : 85.6
 
 dot kernel
-val :   89.6
-test :  91.3
+val :   91.800
+test :  90.900
 
 time taken to train naive bayes on Scikit : 38.213 seconds.
 Accuracy for naive bayes is : 59.481
@@ -26,3 +22,24 @@ c_values = [1e-5, 1e-3, 1, 5, 10]
 
 c_values = [0.1, 0.5, 2.5]
 [0.661, 0.658, 0.645]
+
+
+
+--------------------
+solution 2
+
+2 classes: 3 and 4
+
+linear kernel
+val acc: 99.6
+test acc: 99.8
+
+gaussian kernel
+val acc: 99.6
+test acc: 99.6
+
+
+
+
+
+------------------------------------------

@@ -2,22 +2,28 @@ import numpy as np
 import nltk
 from col774_yelp_data.utils import json_reader, getStemmedDocuments
 from tqdm import tqdm
-from utils import simple_tokenizer, _load_object, calc_accuracy, create_confusion_matrix, plot_confusion_matrix, logits_to_prob_vector, plot_roc_curve, stemmedTokenizer
+from utils import simple_tokenizer, _load_object, calc_accuracy, create_confusion_matrix, plot_confusion_matrix
+from utils import take_mean_logits, logits_to_prob_vector, plot_roc_curve, stemmedTokenizer, lemmaTokenizer
 import pickle
 from os import path
+import os
 
 class NaiveBayes:
-    def __init__(self):
+    def __init__(self, name):
         self.dictionary = {}
         self.class_to_word_count = {}
         self.classes = [1, 2, 3, 4, 5]
         self.star_count = np.zeros(len(self.classes))
 
-        self.name = "stemmed-naive-bayes"
-
+        self.name = name
         self.load_weights()
 
     def load_weights(self):
+
+        if not path.exists("weights"):
+            print("weights dir does not exist. Creating new one.")
+            os.makedirs("weights")
+
         if path.exists("weights/{}-dict.pickle".format(self.name)):
             self.dictionary = _load_object("weights/{}-dict.pickle".format(self.name))
         
@@ -30,9 +36,10 @@ class NaiveBayes:
     def create_dict(self, reader, tokenizer):
         
         if len(self.dictionary) > 0:
-            print("Loaded cached model.")
+            print("Loaded cached vocab.")
             return
 
+        print("Creating Vocabulary. Please be patient.")
         idx = 0
         for line in tqdm(reader):
             tokens = tokenizer(line['text'])
@@ -41,6 +48,7 @@ class NaiveBayes:
                 if x not in self.dictionary:
                     self.dictionary[x] = idx
                     idx += 1
+
         print("Dictionary created with {} words.".format(len(self.dictionary)))
         
         f = open("weights/{}-dict.pickle".format(self.name), "wb")
@@ -55,8 +63,10 @@ class NaiveBayes:
         assert len(self.dictionary) > 0, "initialize dictionary first"
 
         if len(self.class_to_word_count) > 0:
-            print("Loaded cached model.")
+            print("Loaded cached naive bayes model.")
             return
+        
+        print("Training the model on the formed vocab.")
 
         for i in range(len(self.classes)):
             self.class_to_word_count[i] = np.zeros(len(self.dictionary))
@@ -66,6 +76,7 @@ class NaiveBayes:
             for x in tokens:
                 if x in self.dictionary:
                     self.class_to_word_count[int(line['stars'])-1][self.dictionary[x]] += 1
+
         print("Naive model trained.")
 
         f = open("weights/{}-model-weight.pickle".format(self.name), "wb")
@@ -75,6 +86,8 @@ class NaiveBayes:
     def predict(self, reader, tokenizer):
         logits = []
         gt_labels = []
+
+        print("Running predicition on test data.")
 
         for line in tqdm(reader):
             tokens = tokenizer(line['text'])
@@ -101,28 +114,43 @@ class NaiveBayes:
         return logits, gt_labels
 
 if __name__ == '__main__':
-    model = NaiveBayes()
+    model = NaiveBayes(name="simple-naive-bayes")
     tokenizer = stemmedTokenizer
 
-    model.create_dict(json_reader("col774_yelp_data/train.json"), tokenizer)
-    model.train(json_reader("col774_yelp_data/train.json"), tokenizer)
+    train_path = "col774_yelp_data/train.json"
+    test_path = "col774_yelp_data/train.json"
+    output_path = "output.txt"
 
-    # outputs = model.predict(json_reader("col774_yelp_data/test.json"), tokenizer)
-    # f = open("outputs_stemmed_test.pickle","wb")
-    # pickle.dump(outputs, f)
-    # f.close()
+    # Create a vocab
+    model.create_dict(json_reader(train_path), tokenizer)
 
-    # logits, gt_labels = _load_object("outputs_stemmed_test.pickle")
+    # Train the model
+    model.train(json_reader(train_path), tokenizer)
+
+
+    # Run the model on test data
+    logits, gt_labels = model.predict(json_reader(test_path), tokenizer)
+    predictions = np.argmax(logits, axis=1).astype(np.uint8)
+    predictions += 1 # add 1 to restore class mappings
+
+
+    # Dump predictions to output file
+    f = open(output_path, "w")
+    for i in range(len(predictions)):
+        print(predictions[i], file=f)
+    f.close()
+
+    # # Create confusion matrix
     # conf_matrix = create_confusion_matrix(logits, gt_labels)
+    # plot_confusion_matrix(conf_matrix, model.classes, name='conf-matrix-simple-naive')
     
-    # print(calc_accuracy(logits, gt_labels) * 100)
-    # print(conf_matrix)
+    # # Print the accuracy on test data
+    # print("Accuracy on test data : {:.3f}.".format(calc_accuracy(logits, gt_labels) * 100))
 
-    # plot_confusion_matrix(conf_matrix, model.classes)
-
+    # # Plot the roc curve
     # probs = logits_to_prob_vector(logits)
-    # plot_roc_curve(logits, gt_labels)
-    
+    # plot_roc_curve(probs, gt_labels, name='prob-roc-micro')   
 
 
-
+    # probs = take_mean_logits(logits)
+    # plot_roc_curve(probs, gt_labels, name='logits-roc-micro')   
