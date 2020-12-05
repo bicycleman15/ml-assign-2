@@ -1,3 +1,7 @@
+what is left ?
+multiclass accuracy
+multiclass own implementation confusion matrix
+
 2 classes: 3 and 4
 
 linear kernel

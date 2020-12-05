@@ -98,3 +98,16 @@ def lemmaTokenizer(text : str):
     stemmed_tokens = map(lambda token: p_stemmer(token), stopped_tokens)
     lemma_tokens = map(lambda token: lemmatizer(token), stemmed_tokens)
     return list(lemma_tokens)
+
+def lemma_bi_gram_tokenizer(text : str):
+    text = _clean_text(text)
+    tokens = nltk.tokenize.word_tokenize(text)
+
+    stopped_tokens = filter(lambda token: token not in en_stop, tokens)
+    stemmed_tokens = map(lambda token: p_stemmer(token), stopped_tokens)
+    lemma_tokens = map(lambda token: lemmatizer(token), stemmed_tokens)
+
+    tokens = list(lemma_tokens)
+    tokens = list(nltk.bigrams(tokens))
+    
+    return tokens

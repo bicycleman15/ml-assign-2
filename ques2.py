@@ -57,12 +57,6 @@ def _load_all_mnist(path="fashion_mnist", split='val'):
 
     images = data[:, :-1]
     labels = data[:, -1]
-
-    # # NOTE : delete this later
-    # mask = labels <= 2
-    # images = images[mask]
-    # labels = labels[mask]
-    # # ---------------------
     
     images /= 255
     return images, labels
@@ -127,28 +121,6 @@ def _solve_svm(images, labels, kernel_func):
     aplha = np.array(sol['x']).ravel()
 
     return aplha
-
-def _find_weight_matrix(images, labels, alpha):
-    """Will only work for dot prodcut features."""
-    m, n = images.shape
-    w = np.zeros(n)
-    for i in range(m):
-        w += images[i] * labels[i] * alpha[i]
-    return w
-
-def _find_b_dot(images, labels, alpha, kernel_func=_dot_product):
-    W = _find_weight_matrix(images, labels, alpha)
-    mx = -1e16
-    mn = 1e16
-
-    for i in range(images.shape[0]):
-        prediction = np.dot(images[i], W)
-        if labels[i] == 1:
-            mn = min(mn, prediction)
-        else:
-            mx = max(mx, prediction)
-    
-    return -(mx + mn)/2
 
 def _find_b(images, labels, alpha, kernel_func):
     idx = -1
@@ -304,13 +276,14 @@ def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
 
         # print("actual : {}".format(labels[i]))
     
-    predictions = np.array(predictions)
-    mask = predictions == labels
+    predictions = np.array(predictions).astype(np.int16)
+    return 
+    # mask = predictions == labels
 
-    correct = np.sum(mask)
-    total = len(predictions)
+    # correct = np.sum(mask)
+    # total = len(predictions)
 
-    return correct / total
+    # return correct / total
 
 #####################################################################################
 

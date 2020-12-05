@@ -3,10 +3,11 @@ import nltk
 from col774_yelp_data.utils import json_reader, getStemmedDocuments
 from tqdm import tqdm
 from utils import simple_tokenizer, _load_object, calc_accuracy, create_confusion_matrix, plot_confusion_matrix
-from utils import take_mean_logits, logits_to_prob_vector, plot_roc_curve, stemmedTokenizer, lemmaTokenizer
+from utils import take_mean_logits, logits_to_prob_vector, plot_roc_curve, stemmedTokenizer, lemmaTokenizer, lemma_bi_gram_tokenizer
 import pickle
 from os import path
 import os
+import sys
 
 class NaiveBayes:
     def __init__(self, name):
@@ -19,7 +20,6 @@ class NaiveBayes:
         self.load_weights()
 
     def load_weights(self):
-
         if not path.exists("weights"):
             print("weights dir does not exist. Creating new one.")
             os.makedirs("weights")
@@ -85,7 +85,7 @@ class NaiveBayes:
     
     def predict(self, reader, tokenizer):
         logits = []
-        gt_labels = []
+        # gt_labels = []
 
         print("Running predicition on test data.")
 
@@ -106,20 +106,23 @@ class NaiveBayes:
                 log_probs.append(log_sum)
             
             logits.append(log_probs)
-            gt_labels.append(int(line['stars'])-1)
+            # gt_labels.append(int(line['stars'])-1)
         
         logits = np.array(logits)
-        gt_labels = np.array(gt_labels)
+        # gt_labels = np.array(gt_labels)
 
-        return logits, gt_labels
+        return logits
 
 if __name__ == '__main__':
-    model = NaiveBayes(name="simple-naive-bayes")
-    tokenizer = stemmedTokenizer
 
     train_path = "col774_yelp_data/train.json"
-    test_path = "col774_yelp_data/train.json"
+    test_path = "col774_yelp_data/test.json"
     output_path = "output.txt"
+
+    train_path, test_path, output_path = sys.argv[1:]
+
+    model = NaiveBayes(name="simple-naive-bayes")
+    tokenizer = simple_tokenizer
 
     # Create a vocab
     model.create_dict(json_reader(train_path), tokenizer)
@@ -127,12 +130,10 @@ if __name__ == '__main__':
     # Train the model
     model.train(json_reader(train_path), tokenizer)
 
-
     # Run the model on test data
-    logits, gt_labels = model.predict(json_reader(test_path), tokenizer)
+    logits = model.predict(json_reader(test_path), tokenizer)
     predictions = np.argmax(logits, axis=1).astype(np.uint8)
     predictions += 1 # add 1 to restore class mappings
-
 
     # Dump predictions to output file
     f = open(output_path, "w")
@@ -140,17 +141,16 @@ if __name__ == '__main__':
         print(predictions[i], file=f)
     f.close()
 
-    # # Create confusion matrix
+    # Create confusion matrix
     # conf_matrix = create_confusion_matrix(logits, gt_labels)
     # plot_confusion_matrix(conf_matrix, model.classes, name='conf-matrix-simple-naive')
     
-    # # Print the accuracy on test data
+    # Print the accuracy on test data
     # print("Accuracy on test data : {:.3f}.".format(calc_accuracy(logits, gt_labels) * 100))
 
-    # # Plot the roc curve
+    # Plot the roc curve
     # probs = logits_to_prob_vector(logits)
     # plot_roc_curve(probs, gt_labels, name='prob-roc-micro')   
-
 
     # probs = take_mean_logits(logits)
     # plot_roc_curve(probs, gt_labels, name='logits-roc-micro')   

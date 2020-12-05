@@ -1,4 +1,4 @@
-time taken to train naive bayes on Scikit : 38.213 seconds.
+time taken to train naive bayes on Scikit using Count Vectorizer : 38.213 seconds.
 Accuracy for naive bayes is : 59.481
 
 time taken to train LinearSVC (SVM) on Scikit : 87.078 seconds.
