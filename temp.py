@@ -2,13 +2,8 @@ import pandas as pd
 import numpy as np
 import os
 from tqdm import tqdm
-
-import cvxopt
 from cvxopt import matrix, solvers
-
-# set random seeds
-cvxopt.base.setseed(10)
-np.random.seed(10)
+from ques2b import _plot_confusion_mnist
 
 class_pair_to_data = {}
 class_pair_to_aplha = {}
@@ -69,9 +64,10 @@ def _give_kernel_matrix(X, Y, kernel_func):
     m = X.shape[0]
     K = np.zeros([m, m])
 
-    print("generating P matrix...")
+    # print("generating P matrix...")
 
     for i in tqdm(range(m)):
+    # for i in range(m):
         for j in range(m):
             K[i][j] = kernel_func(X[i], X[j]) * Y[i] * Y[j]
 
@@ -101,12 +97,12 @@ def _solve_svm(images, labels, kernel_func):
 
     I = np.eye(m)
     minus_I = -np.eye(m)
-    G = np.concatenate([minus_I, I]) # Swtich
+    G = np.concatenate([I, minus_I])
 
     C = 1.0
     h_c = np.zeros(m) + C
     h_zero = np.zeros(m)
-    h = np.concatenate([h_zero, h_c]) # swtich
+    h = np.concatenate([h_c, h_zero])
 
     A = labels.copy()
     A = np.reshape(A, [1, -1])
@@ -117,12 +113,52 @@ def _solve_svm(images, labels, kernel_func):
     h = matrix(h)
     A = matrix(A)
     b = matrix([[0.0]])
+
     sol = solvers.qp(P,q,G,h,A,b)
     aplha = np.array(sol['x']).ravel()
 
     return aplha
 
+def _find_weight_matrix(images, labels, alpha):
+    """Will only work for dot prodcut features."""
+    m, n = images.shape
+    w = np.zeros(n)
+    for i in range(m):
+        w += images[i] * labels[i] * alpha[i]
+    return w
+
 def _find_b(images, labels, alpha, kernel_func):
+    idx = -1
+    m = images.shape[0]
+    for i in range(m):
+        if alpha[i] > 0 and alpha[i] < 1.0:
+            idx = i
+            break
+    
+    assert idx >= 0 and alpha[idx] > 0 and alpha[idx] < 1.0
+
+    pred = 0
+    for i in range(m):
+        pred += kernel_func(images[idx], images[i]) * labels[i] * alpha[i]
+    
+    b = labels[idx] - pred
+    return b
+
+def _find_b_dot(images, labels, alpha, kernel_func=_dot_product):
+    W = _find_weight_matrix(images, labels, alpha)
+    mx = -1e16
+    mn = 1e16
+
+    for i in range(images.shape[0]):
+        prediction = np.dot(images[i], W)
+        if labels[i] == 1:
+            mn = min(mn, prediction)
+        else:
+            mx = max(mx, prediction)
+    
+    return -(mx + mn)/2
+
+def _find_b_gauss(images, labels, alpha, kernel_func=_gaussian_kernel):
     idx = -1
     m = images.shape[0]
     for i in range(m):
@@ -146,12 +182,11 @@ def predict(image, images, labels, alpha, b, kernel_func=_gaussian_kernel, retur
         prediction += prod
     prediction += b
 
-    # always return the pos prediction
     if return_score:
         if prediction >= 0:
             return 1, prediction
         else:
-            return -1, -prediction
+            return -1, prediction
     
     if prediction >= 0:
         return 1
@@ -180,27 +215,31 @@ def generate_choose_2(N : int):
             choose2.append((i, j))
     return choose2
 
-def _train_all_svms():
-    print("Begining training.")
-    for x, y in generate_choose_2(num_classes):
-        print("Now training {} & {}".format(x, y))
-        file_name = "SVM-guassian-{}-{}.npy".format(x, y)
-        path_name = os.path.join("weights", file_name)
+def _train_a_svm(x : int, y : int, kernel_func):
+    print("Now training {} & {}".format(x, y))
+    file_name = "SVM-guassian-{}-{}.npy".format(x, y)
+    path_name = os.path.join("weights", file_name)
 
-        if os.path.exists(path_name):
-            print("Skipping {}-{} as weights file found in cache".format(x, y))
-            continue
-    
-        images, labels = _load_mnist(split='train', x=x, y=y)
-        kernel = _gaussian_kernel
+    if os.path.exists(path_name):
+        print("Skipping {}-{} as weights file found in cache".format(x, y))
+        return "Done"
 
-        alpha = _solve_svm(images, labels, kernel)
+    images, labels = _load_mnist(split='train', x=x, y=y)
+    kernel = kernel_func
 
-        f = open(path_name,"wb")
-        np.save(f, alpha)
-        f.close()
+    alpha = _solve_svm(images, labels, kernel)
 
-    print("Training of all svms complete")
+    print("Saving wieghts for {}-{} at {}".format(x, y, str(path_name)))
+    f = open(path_name,"wb")
+    np.save(f, alpha)
+    f.close()
+
+def _train_all_svms(kernel_func):
+    print("Now training all SVMs")
+    for x, y in tqdm(list(generate_choose_2(num_classes))):
+        _train_a_svm(x, y, kernel_func)
+
+    print("All SVMs trained.")
 
 def predict_multiclass(image, kernel_func=_gaussian_kernel):
     scores = np.zeros(10)
@@ -212,7 +251,7 @@ def predict_multiclass(image, kernel_func=_gaussian_kernel):
         alpha = class_pair_to_aplha[(x, y)]
         images, labels = class_pair_to_data[(x, y)]
 
-        b = _find_b(images, labels, alpha, kernel_func=kernel_func)
+        b = _find_b(images, labels, alpha, kernel_func)
 
         output, score = predict(image, images, labels, alpha, b, kernel_func=kernel_func,return_score=True)
 
@@ -237,10 +276,6 @@ def predict_multiclass(image, kernel_func=_gaussian_kernel):
             if mx < num[i]:
                 final_idx = i
                 mx = num[i]
-
-    # print("top votes : {}".format(list(idxs)), end=' | ')
-    # print("top numerical : {}".format(list(num[idxs])), end=' | ')
-    # print("selected : {}".format(final_idx), end=' | ')
     
     assert final_idx >= 0
     return final_idx
@@ -259,7 +294,6 @@ def _setup_data(split='val'):
 def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
     _setup_data(split=split)
     images, labels = _load_all_mnist(split=split)
-    labels = labels.astype(np.int8)
     predictions = []
 
     print("Now running validation on split {}.".format(split))
@@ -267,40 +301,60 @@ def calc_acc_multiclass(split='val', kernel_func=_gaussian_kernel):
         image = images[i]
         output = predict_multiclass(image, kernel_func)
         predictions.append(output)
-
-        if i % 50 == 0 and i > 0:
-            short_pred = np.array(predictions[:i])
-            short_gt = labels[:i]
-            mask = short_gt == short_pred
-            print("Accuracy after {} iterations is : {:.3f}".format(i, sum(mask)/len(mask)))
-
-        # print("actual : {}".format(labels[i]))
     
-    predictions = np.array(predictions).astype(np.int16)
-    return 
-    # mask = predictions == labels
+    predictions = np.array(predictions).astype(np.uint8)
+    mask = predictions == labels
 
-    # correct = np.sum(mask)
-    # total = len(predictions)
+    f = open("output_{}.txt".format(split), "w")
+    for i in range(len(predictions)):
+        print(predictions[i], file=f)
+    f.close()
 
-    # return correct / total
+    correct = np.sum(mask)
+    total = len(predictions)
+
+    return correct / total
 
 #####################################################################################
 
 if __name__ == "__main__":
-    x, y = 4, 5
-    kernel = _dot_product
 
-    images, labels = _load_mnist(split='train', x=x, y=y)
-    alpha = _solve_svm(images, labels, kernel)
-    b = _find_b(images, labels, alpha, kernel)
-    
-    X_test, Y_test = _load_mnist(split='val', x=x, y=y)
-    acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
-    print("accuracy on test is : {:.3f}".format(acc * 100))
+    _, gt_labels = _load_all_mnist(split='test')
 
-    X_test, Y_test = _load_mnist(split='test', x=x, y=y)
-    acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
-    print("accuracy on val is : {:.3f}".format(acc * 100))
-    
-    # calc_acc_multiclass()
+    f = open("output.txt", "r")
+    preds = list()
+    for x in f:
+        x = x[:-1]
+        preds.append(int(x))
+    f.close()
+    preds = np.array(preds)
+
+    _plot_confusion_mnist(preds, gt_labels, name="own-svm")
+
+    # images, labels = _load_mnist(split='train', x=2, y=3)
+
+    # print("loaded training data")
+    # print(images.shape)
+
+    # kernel = _dot_product
+
+    # alpha = _solve_svm(images, labels, kernel)
+
+    # # b = _find_b_gauss(images, labels, alpha)
+    # b = _find_b_dot(images, labels, alpha)
+
+    # X_test, Y_test = _load_mnist(split='test', x=2, y=3)
+
+    # print("loaded val data")
+    # print(X_test.shape)
+
+    # acc = _find_acc(X_test, Y_test, images, labels, alpha, b, kernel)
+    # print(acc * 100)
+
+    # _train_all_svms()
+
+    # val = calc_acc_multiclass(split='val')
+    # print("acc on val : {:.3f}".format(val * 100))
+
+    # test = calc_acc_multiclass(split='test')
+    # print("acc on test : {:.3f}".format(test * 100))
