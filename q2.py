@@ -288,7 +288,7 @@ if __name__ == "__main__":
     test_path = "fashion_mnist/val.csv"
     output_path = "output.txt"
 
-    # train_path, test_path, output_path = sys.argv[1:]
+    train_path, test_path, output_path = sys.argv[1:]
     kernel = _gaussian_kernel
 
     if not os.path.exists("weights"):
