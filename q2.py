@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from tqdm import tqdm
+import sys
 
 import cvxopt
 from cvxopt import matrix, solvers
@@ -38,8 +39,9 @@ def _load_mnist(path_train="fashion_mnist/train.csv", path_test="fashion_mnist/t
     data = None
     if split == "train":
         data = pd.read_csv(path_train, header=None)
-    else if split == "test"
+    elif split == "test":
         data = pd.read_csv(path_test, header=None)
+    data = np.array(data)
 
     images = data[:, :-1]
     labels = data[:, -1]
@@ -52,8 +54,9 @@ def _load_all_mnist(path_train="fashion_mnist/train.csv", path_test="fashion_mni
     data = None
     if split == "train":
         data = pd.read_csv(path_train, header=None)
-    else if split == "test"
+    elif split == "test":
         data = pd.read_csv(path_test, header=None)
+    data = np.array(data)
 
     images = data[:, :-1]
     labels = data[:, -1]
@@ -249,14 +252,12 @@ def _setup_data(path_train):
         path_name = os.path.join("weights", file_name)
         f = open(path_name, "rb")
         alpha = np.load(f)
+        f.close()
         class_pair_to_aplha[(x, y)] = alpha
         class_pair_to_data[(x, y)] = _load_mnist(path_train=path_train, split="train", x=x, y=y)
 
 
 def calc_acc_multiclass(path_train, path_test, kernel_func):
-
-    # Load trained model weights
-    _setup_data(path_train)
 
     # Load test images
     test_images, test_labels = _load_all_mnist(path_test=path_test, split="test")
@@ -269,6 +270,12 @@ def calc_acc_multiclass(path_train, path_test, kernel_func):
         test_image = test_images[i]
         output = predict_multiclass(test_image, kernel_func)
         predictions.append(output)
+
+        # Running acc
+        # if i%10 == 0 and i > 0:
+        #     preds = np.array(predictions[:i])
+        #     mask = preds == test_labels[:i]
+        #     print(sum(mask) / len(mask))
     
     predictions = np.array(predictions).astype(np.int8)
     return predictions
@@ -278,16 +285,20 @@ def calc_acc_multiclass(path_train, path_test, kernel_func):
 if __name__ == "__main__":
 
     train_path = "fashion_mnist/train.csv"
-    test_path = "fashion_mnist/test.csv"
+    test_path = "fashion_mnist/val.csv"
     output_path = "output.txt"
 
-    train_path, test_path, output_path = sys.argv[1:]
+    # train_path, test_path, output_path = sys.argv[1:]
     kernel = _gaussian_kernel
 
     if not os.path.exists("weights"):
         os.makedirs("weights")
     
+    # Train all pairs of SVM
     _train_all_svms(train_path, kernel)
+
+    # Load trained model weights
+    _setup_data(train_path)
 
     predictions = calc_acc_multiclass(train_path, test_path, kernel)
 
@@ -296,6 +307,6 @@ if __name__ == "__main__":
         print(predictions[i], file=f)
     f.close()
 
-    test_images, test_labels = _load_all_mnist(path_test=path_test, split="test")
-    mask = test_labels == predictions
-    print("accuracy on test is : {:.3f}".format(sum(mask) / len(mask)))
+    # test_images, test_labels = _load_all_mnist(path_test=path_test, split="test")
+    # mask = test_labels == predictions
+    # print("accuracy on test is : {:.3f}".format(sum(mask) / len(mask)))
